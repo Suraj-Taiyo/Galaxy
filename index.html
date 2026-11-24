@@ -1,0 +1,1759 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Solar System Explorers — Sound & Orbit Edition</title>
+  <style>
+    :root {
+      --bg-top: #040714;
+      --bg-bottom: #0c1738;
+      --card-bg: rgba(15, 24, 56, 0.96);
+      --card-border: rgba(255, 255, 255, 0.18);
+      --text-main: #f7faff;
+      --text-muted: #b6c5eb;
+      --accent: #ffd166;
+      --accent-2: #4cc9f0;
+      --success: #52b788;
+      --wrong: #ff6b6b;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      min-height: 100vh;
+      width: 100vw;
+      overflow-x: hidden;
+      background: radial-gradient(circle at 35% 45%, var(--bg-bottom) 0%, var(--bg-top) 78%);
+      font-family: 'Trebuchet MS', 'Segoe UI', system-ui, sans-serif;
+      color: var(--text-main);
+      position: relative;
+      padding-bottom: 56px;
+    }
+
+    body.paused .bobbing,
+    body.paused .star {
+      animation-play-state: paused !important;
+    }
+
+    /* Top Bar */
+    header {
+      position: relative;
+      z-index: 20;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 22px;
+      background: rgba(5, 9, 24, 0.78);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .brand h1 {
+      font-size: 1.3rem;
+      letter-spacing: 0.04em;
+      color: var(--accent);
+    }
+
+    .brand p {
+      font-size: 0.84rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .badge {
+      background: rgba(255, 209, 102, 0.15);
+      border: 1px solid rgba(255, 209, 102, 0.4);
+      color: var(--accent);
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+
+    .btn {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text-main);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      padding: 7px 12px;
+      border-radius: 999px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.15s ease, background 0.2s ease;
+    }
+
+    .btn:hover {
+      background: rgba(255, 255, 255, 0.2);
+      transform: translateY(-1px);
+    }
+
+    .btn.active-mode,
+    .btn.active-filter {
+      background: var(--accent-2);
+      color: #041024;
+      border-color: var(--accent-2);
+    }
+
+    .btn.muted-sound {
+      background: rgba(255, 107, 107, 0.18);
+      border-color: rgba(255, 107, 107, 0.45);
+      color: #ffc2c2;
+    }
+
+    /* CSS Starfield */
+    .starfield {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    .star {
+      position: absolute;
+      background: #ffffff;
+      border-radius: 50%;
+      animation: twinkle var(--dur, 4s) ease-in-out infinite;
+      animation-delay: var(--delay, 0s);
+    }
+
+    @keyframes twinkle {
+      0%, 100% { opacity: 0.25; transform: scale(0.85); }
+      50% { opacity: 1; transform: scale(1.25); }
+    }
+
+    /* Lineup View */
+    .solar-stage {
+      position: relative;
+      z-index: 4;
+      max-width: 1380px;
+      margin: 28px auto 0;
+      padding: 24px 28px 64px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: 34px 26px;
+    }
+
+    .solar-stage.hidden {
+      display: none;
+    }
+
+    /* Orbit View */
+    .orbit-stage {
+      position: relative;
+      z-index: 4;
+      width: 100%;
+      height: calc(100vh - 88px);
+      min-height: 640px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .orbit-stage.active {
+      display: flex;
+    }
+
+    .orbit-system {
+      position: relative;
+      width: 900px;
+      height: 900px;
+      transform: scale(var(--orbit-scale, 1));
+      transform-origin: center center;
+    }
+
+    .orbit-ring {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      border: 1px dashed rgba(255, 255, 255, 0.16);
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+
+    .orbit-sun-anchor {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 6;
+    }
+
+    .orbit-planet-anchor {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      z-index: 7;
+      transform: translate(-50%, -50%);
+    }
+
+    /* Moon Orbiters around Planets */
+    .moon-orbit-ring {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      border: 1px dotted rgba(255, 255, 255, 0.22);
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      z-index: 6;
+    }
+
+    .moon-btn {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: none;
+      border: none;
+      cursor: pointer;
+      z-index: 9;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      padding: 0;
+      transition: transform 0.15s ease;
+    }
+
+    .moon-btn:hover {
+      transform: translate(-50%, -50%) scale(1.35);
+      z-index: 12;
+    }
+
+    .moon-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 30% 30%, #ffffff 0%, #cbd5e1 70%, #64748b 100%);
+      box-shadow: 0 0 6px rgba(255, 255, 255, 0.75);
+    }
+
+    .moon-tag {
+      font-size: 0.58rem;
+      font-weight: 700;
+      color: #e2e8f0;
+      background: rgba(4, 10, 26, 0.78);
+      padding: 1px 4px;
+      border-radius: 4px;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+
+    /* Orbit HUD with Speed Slider */
+    .orbit-hud {
+      position: fixed;
+      bottom: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 18;
+      display: none;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      background: rgba(6, 12, 28, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      padding: 8px 16px;
+      border-radius: 999px;
+      max-width: 95vw;
+    }
+
+    .orbit-hud.visible {
+      display: flex;
+    }
+
+    .speed-control {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    .speed-control input[type="range"] {
+      width: 110px;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    /* Celestial Buttons */
+    .celestial {
+      position: relative;
+      border: none;
+      background: none;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-main);
+      transition: transform 0.2s ease, opacity 0.25s ease;
+    }
+
+    .celestial.bobbing {
+      animation: bob var(--bob-time, 6s) ease-in-out infinite;
+      animation-delay: var(--bob-delay, 0s);
+    }
+
+    .celestial.dimmed {
+      opacity: 0.25;
+    }
+
+    .celestial:hover,
+    .celestial:focus-visible {
+      transform: scale(1.12);
+      outline: none;
+    }
+
+    @keyframes bob {
+      0%, 100% { translate: 0 0; }
+      50% { translate: 0 -8px; }
+    }
+
+    .body-sphere {
+      border-radius: 50%;
+      position: relative;
+      transition: box-shadow 0.25s ease;
+    }
+
+    .celestial:hover .body-sphere {
+      box-shadow: 0 0 26px rgba(255, 255, 255, 0.4);
+    }
+
+    .label-pill {
+      font-size: 0.82rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      background: rgba(10, 18, 42, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      padding: 3px 10px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      pointer-events: none;
+    }
+
+    .orbit-stage .label-pill {
+      font-size: 0.68rem;
+      padding: 2px 7px;
+      gap: 4px;
+    }
+
+    .visited-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--success);
+      display: none;
+    }
+
+    .celestial.visited .visited-dot {
+      display: inline-block;
+    }
+
+    /* CSS Celestial Bodies */
+    .sun-sphere {
+      width: 110px;
+      height: 110px;
+      background: radial-gradient(circle at 35% 35%, #fff7b2 0%, #ffbe0b 48%, #fb5607 100%);
+      box-shadow: 0 0 32px rgba(255, 190, 11, 0.65), 0 0 70px rgba(251, 86, 7, 0.35);
+    }
+
+    .orbit-stage .sun-sphere { width: 72px; height: 72px; }
+
+    .mercury-sphere {
+      width: 34px;
+      height: 34px;
+      background: radial-gradient(circle at 30% 30%, #d8d4cf 0%, #9b958e 60%, #4b4743 100%);
+      box-shadow: inset -5px -5px 10px rgba(0, 0, 0, 0.65);
+    }
+
+    .orbit-stage .mercury-sphere { width: 15px; height: 15px; }
+
+    .venus-sphere {
+      width: 48px;
+      height: 48px;
+      background: radial-gradient(circle at 32% 28%, #fff0c2 0%, #e3a857 58%, #8c5319 100%);
+      box-shadow: inset -7px -7px 12px rgba(0, 0, 0, 0.6);
+    }
+
+    .orbit-stage .venus-sphere { width: 20px; height: 20px; }
+
+    .earth-sphere {
+      width: 54px;
+      height: 54px;
+      background: radial-gradient(circle at 30% 30%, #72efdd 0%, #219ebc 48%, #40916c 72%, #023047 100%);
+      box-shadow: inset -8px -8px 14px rgba(0, 0, 0, 0.65);
+    }
+
+    .orbit-stage .earth-sphere { width: 22px; height: 22px; }
+
+    .mars-sphere {
+      width: 42px;
+      height: 42px;
+      background: radial-gradient(circle at 30% 30%, #ff9e7d 0%, #d64045 58%, #5c1619 100%);
+      box-shadow: inset -6px -6px 11px rgba(0, 0, 0, 0.68);
+    }
+
+    .orbit-stage .mars-sphere { width: 18px; height: 18px; }
+
+    .jupiter-sphere {
+      width: 94px;
+      height: 94px;
+      background:
+        radial-gradient(circle at 28% 28%, rgba(255, 255, 255, 0.25), transparent 55%),
+        linear-gradient(180deg, #c9ada7 0%, #f2cc8f 18%, #c87d55 34%, #f4e1c1 50%, #b5653e 68%, #e0b184 84%, #7f4f24 100%);
+      box-shadow: inset -12px -12px 22px rgba(0, 0, 0, 0.65);
+    }
+
+    .orbit-stage .jupiter-sphere { width: 38px; height: 38px; }
+
+    .saturn-sphere {
+      width: 78px;
+      height: 78px;
+      background: radial-gradient(circle at 32% 30%, #fff1bd 0%, #e6be6a 58%, #8f6b29 100%);
+      box-shadow: inset -10px -10px 18px rgba(0, 0, 0, 0.62);
+    }
+
+    .orbit-stage .saturn-sphere { width: 32px; height: 32px; }
+
+    .saturn-sphere::before {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 142px;
+      height: 32px;
+      border-radius: 50%;
+      border: 7px solid rgba(245, 217, 148, 0.72);
+      border-top-color: rgba(245, 217, 148, 0.25);
+      transform: translate(-50%, -50%) rotate(-18deg);
+      pointer-events: none;
+    }
+
+    .orbit-stage .saturn-sphere::before {
+      width: 58px;
+      height: 13px;
+      border-width: 3px;
+    }
+
+    .uranus-sphere {
+      width: 62px;
+      height: 62px;
+      background: radial-gradient(circle at 32% 30%, #caf0f8 0%, #48cae4 60%, #165b73 100%);
+      box-shadow: inset -8px -8px 15px rgba(0, 0, 0, 0.65);
+    }
+
+    .orbit-stage .uranus-sphere { width: 25px; height: 25px; }
+
+    .neptune-sphere {
+      width: 60px;
+      height: 60px;
+      background: radial-gradient(circle at 32% 30%, #90e0ef 0%, #2563eb 58%, #0b1d51 100%);
+      box-shadow: inset -8px -8px 15px rgba(0, 0, 0, 0.7);
+    }
+
+    .orbit-stage .neptune-sphere { width: 24px; height: 24px; }
+
+    /* Modal */
+    .backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(2, 6, 18, 0.74);
+      backdrop-filter: blur(5px);
+      z-index: 30;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+    }
+
+    .backdrop.open {
+      display: flex;
+    }
+
+    .explorer-card {
+      width: min(580px, 100%);
+      max-height: 88vh;
+      overflow-y: auto;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 22px;
+      padding: 24px 26px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.75);
+      animation: popIn 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    @keyframes popIn {
+      from { opacity: 0; transform: scale(0.95) translateY(8px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+
+    .card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .group-tag {
+      font-size: 0.76rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--accent-2);
+    }
+
+    .close-btn {
+      background: rgba(255, 255, 255, 0.1);
+      border: none;
+      color: var(--text-main);
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      font-size: 1.25rem;
+      cursor: pointer;
+    }
+
+    .close-btn:hover {
+      background: rgba(255, 255, 255, 0.22);
+    }
+
+    .title-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .explorer-card h2 {
+      font-size: 1.65rem;
+      color: var(--accent);
+    }
+
+    .replay-btn {
+      background: rgba(76, 201, 240, 0.16);
+      border: 1px solid rgba(76, 201, 240, 0.45);
+      color: var(--accent-2);
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.15s ease, background 0.2s ease;
+    }
+
+    .replay-btn:hover {
+      background: rgba(76, 201, 240, 0.28);
+      transform: translateY(-1px);
+    }
+
+    .stat-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .stat-chip {
+      font-size: 0.78rem;
+      background: rgba(255, 255, 255, 0.08);
+      padding: 5px 10px;
+      border-radius: 8px;
+      color: var(--text-muted);
+    }
+
+    .mode-switch {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .tab-btn {
+      flex: 1;
+      min-width: 110px;
+      padding: 9px 10px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text-main);
+      font-weight: 700;
+      font-size: 0.84rem;
+      cursor: pointer;
+    }
+
+    .tab-btn.active {
+      background: var(--accent);
+      color: #091126;
+      border-color: var(--accent);
+    }
+
+    .tab-panel {
+      display: none;
+    }
+
+    .tab-panel.active {
+      display: block;
+    }
+
+    .card-body {
+      font-size: 1rem;
+      line-height: 1.65;
+      color: var(--text-main);
+    }
+
+    .deep-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .deep-box {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 10px 12px;
+    }
+
+    .deep-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--accent-2);
+      display: block;
+      margin-bottom: 3px;
+    }
+
+    .deep-val {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .section-block {
+      margin-top: 14px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 14px;
+      padding: 14px;
+    }
+
+    .section-block h3 {
+      font-size: 0.95rem;
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
+
+    .story-callout {
+      background: rgba(76, 201, 240, 0.1);
+      border-left: 3px solid var(--accent-2);
+      padding: 12px 14px;
+      border-radius: 0 10px 10px 0;
+      font-size: 0.92rem;
+      line-height: 1.55;
+      color: #e8f1ff;
+    }
+
+    /* Weight Calculator */
+    .weight-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+
+    .weight-input {
+      width: 110px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      background: rgba(6, 12, 28, 0.9);
+      color: var(--text-main);
+      font-size: 0.95rem;
+      font-weight: 700;
+    }
+
+    .weight-result {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--accent-2);
+    }
+
+    /* Earth Protective Layers */
+    .layer-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .layer-item {
+      background: rgba(10, 20, 48, 0.75);
+      border: 1px solid rgba(76, 201, 240, 0.22);
+      border-radius: 10px;
+      padding: 9px 12px;
+      font-size: 0.86rem;
+      line-height: 1.45;
+    }
+
+    .layer-item strong {
+      color: var(--accent-2);
+    }
+
+    .quiz-question {
+      font-weight: 700;
+      margin-bottom: 12px;
+      font-size: 0.98rem;
+    }
+
+    .quiz-options {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .option-btn {
+      text-align: left;
+      padding: 10px 14px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      background: rgba(12, 22, 52, 0.85);
+      color: var(--text-main);
+      font-size: 0.92rem;
+      cursor: pointer;
+    }
+
+    .option-btn:hover {
+      background: rgba(76, 201, 240, 0.2);
+    }
+
+    .option-btn.correct {
+      background: rgba(82, 183, 136, 0.35);
+      border-color: var(--success);
+    }
+
+    .option-btn.wrong {
+      background: rgba(255, 107, 107, 0.3);
+      border-color: var(--wrong);
+    }
+
+    .quiz-feedback {
+      margin-top: 10px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      min-height: 20px;
+    }
+
+    @media (max-width: 600px) {
+      .deep-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="starfield" id="starfield"></div>
+
+  <header>
+    <div class="brand">
+      <h1>Solar System Explorers</h1>
+      <p>Tap any world or orbiting moon to explore and listen!</p>
+    </div>
+    <div class="controls">
+      <span class="badge" id="exploredBadge">Explored: 0 / 9</span>
+      <button class="btn active-mode" id="soundToggle">Sound: ON</button>
+      <button class="btn" id="orbitToggle">Orbit Mode: OFF</button>
+      <button class="btn" id="earthShieldsBtn">Earth's Shields</button>
+      <button class="btn active-filter" data-filter="all">All Worlds</button>
+      <button class="btn" data-filter="rocky">Rocky</button>
+      <button class="btn" data-filter="giant">Giants</button>
+      <button class="btn" id="toggleMotion">Pause</button>
+    </div>
+  </header>
+
+  <!-- Lineup View -->
+  <main class="solar-stage" id="lineupStage"></main>
+
+  <!-- Orbit View -->
+  <section class="orbit-stage" id="orbitStage" aria-label="Orbital solar system view">
+    <div class="orbit-system" id="orbitSystem"></div>
+  </section>
+
+  <!-- Orbit HUD with Speed Slider -->
+  <div class="orbit-hud" id="orbitHud">
+    <span>Inner planets orbit faster than outer planets</span>
+    <label class="speed-control" for="speedSlider">
+      Orbit Speed: <span id="speedValue">1.0x</span>
+      <input type="range" id="speedSlider" min="0.1" max="4" step="0.1" value="1" />
+    </label>
+  </div>
+
+  <!-- Info / Deep Dive / Quiz Modal -->
+  <div class="backdrop" id="backdrop" aria-hidden="true">
+    <div class="explorer-card" role="dialog" aria-modal="true" aria-labelledby="cardTitle">
+      <div class="card-top">
+        <span class="group-tag" id="cardGroup">Star</span>
+        <button class="close-btn" id="closeBtn" aria-label="Close">&times;</button>
+      </div>
+      <div class="title-row">
+        <h2 id="cardTitle">Planet</h2>
+        <button class="replay-btn" id="replaySoundBtn" type="button">Replay Sound</button>
+      </div>
+      <div class="stat-row">
+        <span class="stat-chip" id="cardOrder">Position</span>
+        <span class="stat-chip" id="cardMoons">Moons</span>
+      </div>
+
+      <div class="mode-switch" id="worldTabs">
+        <button class="tab-btn active" data-tab="fact">Cool Fact</button>
+        <button class="tab-btn" data-tab="deep">Deep Dive</button>
+        <button class="tab-btn" data-tab="quiz">Mini Quiz</button>
+      </div>
+
+      <div class="tab-panel active" id="panel-fact">
+        <p class="card-body" id="cardFact"></p>
+      </div>
+
+      <div class="tab-panel" id="panel-deep">
+        <div class="deep-grid">
+          <div class="deep-box">
+            <span class="deep-label">Distance from Sun</span>
+            <span class="deep-val" id="deepDist"></span>
+          </div>
+          <div class="deep-box">
+            <span class="deep-label">1 Day Length</span>
+            <span class="deep-val" id="deepDay"></span>
+          </div>
+          <div class="deep-box">
+            <span class="deep-label">1 Year Length</span>
+            <span class="deep-val" id="deepYear"></span>
+          </div>
+          <div class="deep-box">
+            <span class="deep-label">Temperature</span>
+            <span class="deep-val" id="deepTemp"></span>
+          </div>
+        </div>
+
+        <div class="story-callout" id="deepStory"></div>
+
+        <!-- Moons Info Section -->
+        <div class="section-block">
+          <h3>Moons & Orbiting Companions</h3>
+          <p class="card-body" style="font-size: 0.92rem;" id="deepMoonsInfo"></p>
+        </div>
+
+        <!-- Weight Calculator Section -->
+        <div class="section-block">
+          <h3>Your Weight on <span id="weightWorldName">This World</span></h3>
+          <div class="weight-row">
+            <label for="earthWeightInput" style="font-size: 0.88rem;">Weight on Earth (kg):</label>
+            <input type="number" id="earthWeightInput" class="weight-input" min="1" max="500" value="35" />
+          </div>
+          <p class="weight-result" id="weightOutput"></p>
+        </div>
+
+        <!-- Earth Protective Layers (shown on Earth) -->
+        <div class="section-block" id="earthLayersSection" style="display: none;">
+          <h3>Earth's Protective Layers (Atmosphere to Space)</h3>
+          <div class="layer-list" id="earthLayersList"></div>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="panel-quiz">
+        <p class="quiz-question" id="quizQuestion"></p>
+        <div class="quiz-options" id="quizOptions"></div>
+        <p class="quiz-feedback" id="quizFeedback"></p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Zero-asset Web Audio synthesizer for Solar System Explorers
+    const soundEngine = (() => {
+      let ctx = null;
+      let enabled = true;
+
+      function ensureContext() {
+        if (!enabled) return null;
+        if (!ctx) {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          ctx = new AudioCtx();
+        }
+        if (ctx.state === "suspended") {
+          ctx.resume();
+        }
+        return ctx;
+      }
+
+      const profiles = {
+        sun:      { freq: 110.00, type: "sawtooth", duration: 1.05, gain: 0.055 },
+        mercury:  { freq: 523.25, type: "sine",     duration: 0.45, gain: 0.09 },
+        venus:    { freq: 440.00, type: "triangle", duration: 0.55, gain: 0.09 },
+        earth:    { freq: 392.00, type: "sine",     duration: 0.65, gain: 0.10 },
+        mars:     { freq: 329.63, type: "triangle", duration: 0.50, gain: 0.09 },
+        jupiter:  { freq: 130.81, type: "sine",     duration: 0.95, gain: 0.12 },
+        saturn:   { freq: 164.81, type: "triangle", duration: 0.90, gain: 0.10 },
+        uranus:   { freq: 220.00, type: "sine",     duration: 0.75, gain: 0.09 },
+        neptune:  { freq: 146.83, type: "sine",     duration: 0.85, gain: 0.10 },
+        moon:     { freq: 587.33, type: "sine",     duration: 0.40, gain: 0.08 },
+        phobos:   { freq: 659.25, type: "triangle", duration: 0.35, gain: 0.08 },
+        deimos:   { freq: 698.46, type: "sine",     duration: 0.35, gain: 0.08 },
+        io:       { freq: 293.66, type: "sawtooth", duration: 0.45, gain: 0.05 },
+        europa:   { freq: 493.88, type: "sine",     duration: 0.55, gain: 0.08 },
+        ganymede: { freq: 196.00, type: "triangle", duration: 0.70, gain: 0.09 },
+        callisto: { freq: 246.94, type: "sine",     duration: 0.65, gain: 0.08 },
+        enceladus:{ freq: 554.37, type: "sine",     duration: 0.45, gain: 0.08 },
+        titan:    { freq: 174.61, type: "triangle", duration: 0.75, gain: 0.09 },
+        titania:  { freq: 349.23, type: "sine",     duration: 0.50, gain: 0.08 },
+        triton:   { freq: 261.63, type: "triangle", duration: 0.60, gain: 0.08 }
+      };
+
+      function playWorldSound(id) {
+        const audio = ensureContext();
+        if (!audio) return;
+
+        const p = profiles[id] || { freq: 293.66, type: "sine", duration: 0.45, gain: 0.08 };
+        const now = audio.currentTime;
+
+        const osc = audio.createOscillator();
+        const filter = audio.createBiquadFilter();
+        const gainNode = audio.createGain();
+
+        osc.type = p.type;
+        osc.frequency.setValueAtTime(p.freq, now);
+        osc.frequency.exponentialRampToValueAtTime(p.freq * 1.06, now + p.duration * 0.7);
+
+        filter.type = "lowpass";
+        filter.frequency.setValueAtTime(1400, now);
+
+        gainNode.gain.setValueAtTime(0.0001, now);
+        gainNode.gain.linearRampToValueAtTime(p.gain, now + 0.04);
+        gainNode.gain.exponentialRampToValueAtTime(0.0001, now + p.duration);
+
+        osc.connect(filter);
+        filter.connect(gainNode);
+        gainNode.connect(audio.destination);
+
+        osc.start(now);
+        osc.stop(now + p.duration + 0.02);
+      }
+
+      function playQuizResult(isCorrect) {
+        const audio = ensureContext();
+        if (!audio) return;
+
+        const notes = isCorrect ? [523.25, 659.25, 783.99] : [220, 185];
+        notes.forEach((freq, i) => {
+          const start = audio.currentTime + i * 0.11;
+          const osc = audio.createOscillator();
+          const gain = audio.createGain();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(freq, start);
+
+          gain.gain.setValueAtTime(0.0001, start);
+          gain.gain.linearRampToValueAtTime(0.09, start + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.22);
+
+          osc.connect(gain);
+          gain.connect(audio.destination);
+          osc.start(start);
+          osc.stop(start + 0.24);
+        });
+      }
+
+      function toggle() {
+        enabled = !enabled;
+        if (enabled) ensureContext();
+        return enabled;
+      }
+
+      return { playWorldSound, playQuizResult, toggle, isEnabled: () => enabled };
+    })();
+
+    const earthProtectiveLayers = [
+      {
+        name: "1. Troposphere (0–12 km)",
+        desc: "Where we breathe and weather happens—clouds, rain, and wind. It holds most of our air and keeps temperatures livable."
+      },
+      {
+        name: "2. Stratosphere & Ozone Layer (12–50 km)",
+        desc: "Home to the ozone shield, which blocks harmful ultraviolet (UV) rays from the Sun so skin and plants stay safe."
+      },
+      {
+        name: "3. Mesosphere (50–85 km)",
+        desc: "The meteor shield! Most space rocks and dust burn up here from friction, creating shooting stars."
+      },
+      {
+        name: "4. Thermosphere (85–600 km)",
+        desc: "Absorbs high-energy solar radiation, hosts auroras (Northern & Southern Lights), and is where the International Space Station orbits."
+      },
+      {
+        name: "5. Exosphere (600–10,000 km)",
+        desc: "The super-thin outer edge of the atmosphere where air molecules slowly drift out into space."
+      },
+      {
+        name: "6. Magnetosphere & Van Allen Belts (Space Shield)",
+        desc: "Generated by Earth's spinning liquid-iron core, this invisible magnetic bubble deflects charged solar wind particles and traps harmful space radiation."
+      }
+    ];
+
+    const worlds = [
+      {
+        id: "sun",
+        name: "The Sun",
+        sphereClass: "sun-sphere",
+        group: "Star • Center of Our System",
+        type: "giant",
+        order: "Center Star",
+        moons: "8 Planets + 290+ Moons Orbit It",
+        gravityRatio: 27.9,
+        orbitRadius: 0,
+        angularSpeed: 0,
+        moonsList: [],
+        fact: "The Sun is a giant ball of glowing hot gas! More than one million Earths could fit inside it, and its light takes about 8 minutes to reach us.",
+        deep: {
+          dist: "0 km (Center)",
+          day: "~25 Earth days (at equator)",
+          year: "Circles galaxy in ~230M yrs",
+          temp: "5,500°C surface (10,000°F)",
+          story: "Imagine a giant campfire millions of kilometers wide that powers light, warmth, and seasons across the entire solar system!",
+          moonsInfo: "The Sun doesn't have moons of its own—instead, 8 planets, dwarf planets, asteroids, and comets orbit around the Sun."
+        },
+        quiz: {
+          q: "About how long does sunlight take to travel from the Sun to Earth?",
+          options: ["About 8 minutes", "About 8 seconds", "About 8 days"],
+          answer: 0,
+          win: "Awesome! Sunlight zooms across space in about 8 minutes."
+        }
+      },
+      {
+        id: "mercury",
+        name: "Mercury",
+        sphereClass: "mercury-sphere",
+        group: "Rocky Planet",
+        type: "rocky",
+        order: "1st Planet",
+        moons: "0 Moons",
+        gravityRatio: 0.38,
+        orbitRadius: 74,
+        angularSpeed: 1.65,
+        moonsList: [],
+        fact: "Mercury is the smallest planet and zips around the Sun faster than any other planet—one year on Mercury takes just 88 Earth days.",
+        deep: {
+          dist: "58 million km (36M mi)",
+          day: "59 Earth days",
+          year: "88 Earth days",
+          temp: "-180°C to 430°C (-290°F to 800°F)",
+          story: "Because Mercury has almost no air blanket to hold heat in, sunny spots get scorching hot while shaded craters freeze.",
+          moonsInfo: "Mercury has zero moons. Because it is so close to the Sun, the Sun's strong gravity would easily pull any nearby moon away."
+        },
+        quiz: {
+          q: "What makes Mercury's orbit special?",
+          options: ["It has giant icy rings", "It circles the Sun fastest (88 days)", "It is the coldest planet"],
+          answer: 1,
+          win: "Spot on! Mercury is the speedy inner runner of the solar system."
+        }
+      },
+      {
+        id: "venus",
+        name: "Venus",
+        sphereClass: "venus-sphere",
+        group: "Rocky Planet",
+        type: "rocky",
+        order: "2nd Planet",
+        moons: "0 Moons",
+        gravityRatio: 0.90,
+        orbitRadius: 116,
+        angularSpeed: 1.18,
+        moonsList: [],
+        fact: "Venus is wrapped in thick clouds that trap heat like a cozy blanket, making it the hottest planet—even hotter than Mercury!",
+        deep: {
+          dist: "108 million km (67M mi)",
+          day: "243 Earth days (spins backwards!)",
+          year: "225 Earth days",
+          temp: "465°C (870°F)",
+          story: "If you stood on Venus, the Sun would appear to rise in the west and set in the east—and one day on Venus is longer than its whole year!",
+          moonsInfo: "Venus has no moons either. Scientists think past collisions or tidal effects from the Sun prevented it from keeping a moon."
+        },
+        quiz: {
+          q: "Why is Venus the hottest planet in our solar system?",
+          options: ["Thick clouds trap lots of heat", "It is made of liquid lava", "It has two suns"],
+          answer: 0,
+          win: "Great job! Those thick clouds act like a heat-trapping blanket."
+        }
+      },
+      {
+        id: "earth",
+        name: "Earth",
+        sphereClass: "earth-sphere",
+        group: "Rocky Planet",
+        type: "rocky",
+        order: "3rd Planet",
+        moons: "1 Moon",
+        gravityRatio: 1.0,
+        orbitRadius: 164,
+        angularSpeed: 0.92,
+        moonsList: [
+          {
+            id: "moon",
+            name: "The Moon",
+            parent: "Earth",
+            radius: 20,
+            speed: 4.5,
+            phaseOffset: 0,
+            fact: "Earth's only natural moon! Its gravity pulls on Earth's oceans to create high and low tides, and it shows us phases as sunlight hits it.",
+            stats: "Diameter: ~3,474 km • Orbit around Earth: ~27.3 days • Gravity: ~1/6th of Earth"
+          }
+        ],
+        fact: "Our home! Earth is the only known place in space with liquid oceans covering most of the surface and millions of living creatures.",
+        deep: {
+          dist: "150 million km (93M mi)",
+          day: "24 hours",
+          year: "365.25 days",
+          temp: "Average 15°C (59°F)",
+          story: "Earth's breathable air, blue oceans, and protective magnetic shield make it the 'just-right' home for life.",
+          moonsInfo: "Earth has one large moon (called the Moon). In Orbit Mode, tap the Moon orbiting Earth to see its details!"
+        },
+        quiz: {
+          q: "How many natural moons does Earth have?",
+          options: ["Zero", "One", "Four"],
+          answer: 1,
+          win: "Right! Our Moon lights up night skies and helps shape ocean tides."
+        }
+      },
+      {
+        id: "mars",
+        name: "Mars",
+        sphereClass: "mars-sphere",
+        group: "Rocky Planet",
+        type: "rocky",
+        order: "4th Planet",
+        moons: "2 Moons",
+        gravityRatio: 0.38,
+        orbitRadius: 214,
+        angularSpeed: 0.72,
+        moonsList: [
+          {
+            id: "phobos",
+            name: "Phobos",
+            parent: "Mars",
+            radius: 15,
+            speed: 5.5,
+            phaseOffset: 0.5,
+            fact: "The bigger and closer of Mars's two tiny potato-shaped moons! It orbits Mars three times every single day.",
+            stats: "Size: ~22 km across • Orbit around Mars: ~7.6 hours"
+          },
+          {
+            id: "deimos",
+            name: "Deimos",
+            parent: "Mars",
+            radius: 23,
+            speed: 2.8,
+            phaseOffset: 2.7,
+            fact: "The smaller, farther moon of Mars. It has a smoother surface because dust fills in many of its craters.",
+            stats: "Size: ~12 km across • Orbit around Mars: ~30.3 hours"
+          }
+        ],
+        fact: "Known as the Red Planet because of rusty iron dust in its soil, Mars has Olympus Mons—a volcano nearly three times taller than Mount Everest!",
+        deep: {
+          dist: "228 million km (142M mi)",
+          day: "24 hours 37 minutes",
+          year: "687 Earth days",
+          temp: "Average -65°C (-85°F)",
+          story: "Robot rovers drive across dusty canyons and dry riverbeds on Mars, searching for clues about whether water once flowed there.",
+          moonsInfo: "Mars has two small, lumpy moons named Phobos and Deimos. Tap either moon in Orbit Mode to inspect it!"
+        },
+        quiz: {
+          q: "Why does Mars look reddish?",
+          options: ["Red paint from rovers", "Rusty iron dust on its surface", "Crimson ocean water"],
+          answer: 1,
+          win: "Nice work! Rusty iron in the soil gives Mars its famous red glow."
+        }
+      },
+      {
+        id: "jupiter",
+        name: "Jupiter",
+        sphereClass: "jupiter-sphere",
+        group: "Gas Giant",
+        type: "giant",
+        order: "5th Planet",
+        moons: "95+ Moons",
+        gravityRatio: 2.53,
+        orbitRadius: 274,
+        angularSpeed: 0.45,
+        moonsList: [
+          {
+            id: "io",
+            name: "Io",
+            parent: "Jupiter",
+            radius: 26,
+            speed: 6.2,
+            phaseOffset: 0,
+            fact: "The most volcanic world in the solar system! Jupiter's strong gravity stretches Io and powers hundreds of active volcanoes.",
+            stats: "Diameter: ~3,643 km • Orbit around Jupiter: ~1.8 Earth days"
+          },
+          {
+            id: "europa",
+            name: "Europa",
+            parent: "Jupiter",
+            radius: 33,
+            speed: 4.2,
+            phaseOffset: 1.6,
+            fact: "Covered in a smooth, icy crust with a giant salty ocean hidden underneath—making it a top place scientists study for possible alien microbes.",
+            stats: "Diameter: ~3,122 km • Orbit around Jupiter: ~3.5 Earth days"
+          },
+          {
+            id: "ganymede",
+            name: "Ganymede",
+            parent: "Jupiter",
+            radius: 41,
+            speed: 2.7,
+            phaseOffset: 3.2,
+            fact: "The largest moon in the entire solar system—it is even bigger than the planet Mercury and has its own magnetic field!",
+            stats: "Diameter: ~5,268 km • Orbit around Jupiter: ~7.2 Earth days"
+          },
+          {
+            id: "callisto",
+            name: "Callisto",
+            parent: "Jupiter",
+            radius: 49,
+            speed: 1.7,
+            phaseOffset: 4.8,
+            fact: "An ancient, heavily cratered ice-and-rock moon that preserves one of the oldest surfaces in the solar system.",
+            stats: "Diameter: ~4,821 km • Orbit around Jupiter: ~16.7 Earth days"
+          }
+        ],
+        fact: "Jupiter is the biggest planet of all! Its swirling stripes are giant wind bands, and the Great Red Spot is a storm wider than Earth.",
+        deep: {
+          dist: "778 million km (484M mi)",
+          day: "About 10 hours (super fast spin!)",
+          year: "12 Earth years",
+          temp: "-110°C cloud tops (-166°F)",
+          story: "Even though Jupiter is huge, it spins so fast that a full day lasts less than half a school day!",
+          moonsInfo: "Jupiter has 95+ known moons! Its four biggest—Io, Europa, Ganymede, and Callisto—are called the Galilean moons."
+        },
+        quiz: {
+          q: "What is Jupiter's Great Red Spot?",
+          options: ["A giant swirling storm", "A red ocean", "A hole in the planet"],
+          answer: 0,
+          win: "You got it! It's a huge storm that has raged for hundreds of years."
+        }
+      },
+      {
+        id: "saturn",
+        name: "Saturn",
+        sphereClass: "saturn-sphere",
+        group: "Gas Giant",
+        type: "giant",
+        order: "6th Planet",
+        moons: "140+ Moons",
+        gravityRatio: 1.07,
+        orbitRadius: 336,
+        angularSpeed: 0.31,
+        moonsList: [
+          {
+            id: "enceladus",
+            name: "Enceladus",
+            parent: "Saturn",
+            radius: 36,
+            speed: 4.6,
+            phaseOffset: 0.9,
+            fact: "A bright icy moon that shoots geysers of water vapor and ice crystals from cracks near its south pole—helping feed Saturn's E ring!",
+            stats: "Diameter: ~504 km • Orbit around Saturn: ~1.4 Earth days"
+          },
+          {
+            id: "titan",
+            name: "Titan",
+            parent: "Saturn",
+            radius: 46,
+            speed: 2.3,
+            phaseOffset: 3.6,
+            fact: "Saturn's biggest moon and the only moon with a thick atmosphere and lakes and rivers of liquid methane on its surface!",
+            stats: "Diameter: ~5,150 km • Orbit around Saturn: ~16 Earth days"
+          }
+        ],
+        fact: "Saturn is famous for its bright rings made of billions of chunks of ice and rock—some as tiny as grains of sand and others as big as houses!",
+        deep: {
+          dist: "1.4 billion km (886M mi)",
+          day: "About 10.7 hours",
+          year: "29.5 Earth years",
+          temp: "-140°C cloud tops (-220°F)",
+          story: "Saturn's rings stretch out more than 280,000 kilometers wide, yet in most places they are only about 10 meters thick!",
+          moonsInfo: "Saturn has 140+ known moons, including giant Titan (bigger than Mercury) and icy geyser-spouting Enceladus."
+        },
+        quiz: {
+          q: "What are Saturn's dazzling rings mostly made of?",
+          options: ["Ice and rock pieces", "Solid gold sheets", "Cotton candy clouds"],
+          answer: 0,
+          win: "Awesome! Billions of icy and rocky bits reflect sunlight to form the rings."
+        }
+      },
+      {
+        id: "uranus",
+        name: "Uranus",
+        sphereClass: "uranus-sphere",
+        group: "Ice Giant",
+        type: "giant",
+        order: "7th Planet",
+        moons: "28 Moons",
+        gravityRatio: 0.89,
+        orbitRadius: 392,
+        angularSpeed: 0.21,
+        moonsList: [
+          {
+            id: "titania",
+            name: "Titania",
+            parent: "Uranus",
+            radius: 26,
+            speed: 3.4,
+            phaseOffset: 1.4,
+            fact: "Uranus's largest moon, marked by huge canyons and icy plains.",
+            stats: "Diameter: ~1,578 km • Orbit around Uranus: ~8.7 Earth days"
+          }
+        ],
+        fact: "Uranus is an icy blue-green giant that rolls around the Sun tipped way over on its side—almost like a bowling ball!",
+        deep: {
+          dist: "2.9 billion km (1.8B mi)",
+          day: "About 17 hours",
+          year: "84 Earth years",
+          temp: "-195°C (-320°F)",
+          story: "Because Uranus is tilted nearly 98 degrees on its side, each pole gets 42 years of sunlight followed by 42 years of darkness!",
+          moonsInfo: "Uranus has 28 known moons, named after characters from William Shakespeare and Alexander Pope—Titania is the largest."
+        },
+        quiz: {
+          q: "How does Uranus spin compared to most other planets?",
+          options: ["Tipped over on its side", "Backwards with a tail", "It doesn't spin at all"],
+          answer: 0,
+          win: "Correct! Uranus is tilted sideways as it travels around the Sun."
+        }
+      },
+      {
+        id: "neptune",
+        name: "Neptune",
+        sphereClass: "neptune-sphere",
+        group: "Ice Giant",
+        type: "giant",
+        order: "8th Planet",
+        moons: "16 Moons",
+        gravityRatio: 1.14,
+        orbitRadius: 440,
+        angularSpeed: 0.15,
+        moonsList: [
+          {
+            id: "triton",
+            name: "Triton",
+            parent: "Neptune",
+            radius: 26,
+            speed: -3.2,
+            phaseOffset: 2.2,
+            fact: "Neptune's largest moon orbits backwards compared to Neptune's spin—a clue that it was likely a Kuiper Belt object captured by gravity!",
+            stats: "Diameter: ~2,707 km • Orbit around Neptune: ~5.9 Earth days (retrograde)"
+          }
+        ],
+        fact: "Far out in the deep blue chill, Neptune has the fastest winds in the solar system—blasting faster than a jet airplane!",
+        deep: {
+          dist: "4.5 billion km (2.8B mi)",
+          day: "About 16 hours",
+          year: "165 Earth years",
+          temp: "-200°C (-330°F)",
+          story: "Winds on Neptune can roar past 2,000 km/h (1,200 mph)—so distant and cold that one Neptune year lasts 165 Earth years!",
+          moonsInfo: "Neptune has 16 known moons. Its biggest moon, Triton, is super cold and travels backwards around Neptune."
+        },
+        quiz: {
+          q: "What is Neptune famous for?",
+          options: ["Super-fast winds", "Boiling rock oceans", "Being closest to the Sun"],
+          answer: 0,
+          win: "Superb! Neptune's wild winds whip across the outer edge of the system."
+        }
+      }
+    ];
+
+    const worldMap = Object.fromEntries(worlds.map(w => [w.id, w]));
+    const moonMap = {};
+    worlds.forEach(w => w.moonsList.forEach(m => { moonMap[m.id] = m; }));
+
+    // Sound Toggle Button
+    const soundToggle = document.getElementById("soundToggle");
+    soundToggle.addEventListener("click", () => {
+      const isOn = soundEngine.toggle();
+      soundToggle.textContent = `Sound: ${isOn ? "ON" : "OFF"}`;
+      soundToggle.classList.toggle("active-mode", isOn);
+      soundToggle.classList.toggle("muted-sound", !isOn);
+      if (isOn) soundEngine.playWorldSound("earth");
+    });
+
+    // Render Earth Protective Layers
+    const earthLayersList = document.getElementById("earthLayersList");
+    earthProtectiveLayers.forEach(layer => {
+      const div = document.createElement("div");
+      div.className = "layer-item";
+      div.innerHTML = `<strong>${layer.name}:</strong> ${layer.desc}`;
+      earthLayersList.appendChild(div);
+    });
+
+    // Stars
+    const starfield = document.getElementById("starfield");
+    for (let i = 0; i < 110; i++) {
+      const s = document.createElement("div");
+      s.className = "star";
+      const size = Math.random() * 2.4 + 1;
+      s.style.width = `${size}px`;
+      s.style.height = `${size}px`;
+      s.style.top = `${Math.random() * 100}%`;
+      s.style.left = `${Math.random() * 100}%`;
+      s.style.setProperty("--dur", `${(Math.random() * 3 + 2.5).toFixed(1)}s`);
+      s.style.setProperty("--delay", `${(Math.random() * 4).toFixed(1)}s`);
+      starfield.appendChild(s);
+    }
+
+    // Build Lineup & Orbit DOM
+    const lineupStage = document.getElementById("lineupStage");
+    const orbitSystem = document.getElementById("orbitSystem");
+    const orbitAnchors = [];
+
+    function createCelestialButton(world, isOrbit) {
+      const btn = document.createElement("button");
+      btn.className = `celestial${isOrbit ? "" : " bobbing"}`;
+      btn.dataset.id = world.id;
+      if (!isOrbit) {
+        btn.style.setProperty("--bob-time", `${(5.5 + Math.random() * 2.5).toFixed(1)}s`);
+        btn.style.setProperty("--bob-delay", `${(Math.random() * 1.5).toFixed(1)}s`);
+      }
+
+      const sphere = document.createElement("div");
+      sphere.className = `body-sphere ${world.sphereClass}`;
+
+      const pill = document.createElement("span");
+      pill.className = "label-pill";
+      pill.innerHTML = `<span class="visited-dot"></span>${world.name}`;
+
+      btn.appendChild(sphere);
+      btn.appendChild(pill);
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        openWorldModal(world.id, "fact");
+      });
+      return btn;
+    }
+
+    worlds.forEach((w, idx) => {
+      lineupStage.appendChild(createCelestialButton(w, false));
+
+      if (w.orbitRadius > 0) {
+        const ring = document.createElement("div");
+        ring.className = "orbit-ring";
+        ring.style.width = `${w.orbitRadius * 2}px`;
+        ring.style.height = `${w.orbitRadius * 2}px`;
+        orbitSystem.appendChild(ring);
+
+        const anchor = document.createElement("div");
+        anchor.className = "orbit-planet-anchor";
+        anchor.appendChild(createCelestialButton(w, true));
+
+        const planetMoonItems = [];
+        w.moonsList.forEach(m => {
+          const mRing = document.createElement("div");
+          mRing.className = "moon-orbit-ring";
+          mRing.style.width = `${m.radius * 2}px`;
+          mRing.style.height = `${m.radius * 2}px`;
+          anchor.appendChild(mRing);
+
+          const mBtn = document.createElement("button");
+          mBtn.className = "moon-btn";
+          mBtn.innerHTML = `<span class="moon-dot"></span><span class="moon-tag">${m.name}</span>`;
+          mBtn.title = `Inspect ${m.name}`;
+          mBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            openMoonModal(m.id);
+          });
+          anchor.appendChild(mBtn);
+
+          planetMoonItems.push({ moon: m, el: mBtn, angle: m.phaseOffset });
+        });
+
+        orbitSystem.appendChild(anchor);
+        orbitAnchors.push({
+          world: w,
+          anchor,
+          angle: (idx * 0.85) % (Math.PI * 2),
+          moons: planetMoonItems
+        });
+      } else {
+        const sunAnchor = document.createElement("div");
+        sunAnchor.className = "orbit-sun-anchor";
+        sunAnchor.appendChild(createCelestialButton(w, true));
+        orbitSystem.appendChild(sunAnchor);
+      }
+    });
+
+    // Responsive Orbit Scaling
+    function updateOrbitScale() {
+      const availableW = window.innerWidth - 24;
+      const availableH = window.innerHeight - 135;
+      const scale = Math.min(availableW / 920, availableH / 920, 1);
+      orbitSystem.style.setProperty("--orbit-scale", Math.max(scale, 0.36).toFixed(3));
+    }
+    window.addEventListener("resize", updateOrbitScale);
+    updateOrbitScale();
+
+    // Orbit Speed Slider & Animation Loop
+    const speedSlider = document.getElementById("speedSlider");
+    const speedValue = document.getElementById("speedValue");
+    let speedMultiplier = 1;
+
+    speedSlider.addEventListener("input", () => {
+      speedMultiplier = parseFloat(speedSlider.value);
+      speedValue.textContent = `${speedMultiplier.toFixed(1)}x`;
+    });
+
+    let orbitMode = false;
+    let isPaused = false;
+    let lastTime = performance.now();
+
+    function animateOrbits(now) {
+      const dt = (now - lastTime) / 1000;
+      lastTime = now;
+
+      if (orbitMode && !isPaused) {
+        orbitAnchors.forEach(item => {
+          item.angle += item.world.angularSpeed * speedMultiplier * dt;
+          const x = Math.cos(item.angle) * item.world.orbitRadius;
+          const y = Math.sin(item.angle) * item.world.orbitRadius;
+          item.anchor.style.transform = `translate(calc(-50% + ${x.toFixed(1)}px), calc(-50% + ${y.toFixed(1)}px))`;
+
+          item.moons.forEach(mItem => {
+            mItem.angle += mItem.moon.speed * speedMultiplier * dt;
+            const mx = Math.cos(mItem.angle) * mItem.moon.radius;
+            const my = Math.sin(mItem.angle) * mItem.moon.radius;
+            mItem.el.style.transform = `translate(calc(-50% + ${mx.toFixed(1)}px), calc(-50% + ${my.toFixed(1)}px))`;
+          });
+        });
+      }
+
+      requestAnimationFrame(animateOrbits);
+    }
+    requestAnimationFrame(animateOrbits);
+
+    // Orbit Mode Toggle
+    const orbitToggle = document.getElementById("orbitToggle");
+    const orbitStage = document.getElementById("orbitStage");
+    const orbitHud = document.getElementById("orbitHud");
+
+    orbitToggle.addEventListener("click", () => {
+      orbitMode = !orbitMode;
+      orbitToggle.textContent = `Orbit Mode: ${orbitMode ? "ON" : "OFF"}`;
+      orbitToggle.classList.toggle("active-mode", orbitMode);
+      lineupStage.classList.toggle("hidden", orbitMode);
+      orbitStage.classList.toggle("active", orbitMode);
+      orbitHud.classList.toggle("visible", orbitMode);
+      if (orbitMode) updateOrbitScale();
+    });
+
+    // Modal, Tabs, Replay Sound, Weight Calculator & Earth Shields
+    const visited = new Set();
+    const badge = document.getElementById("exploredBadge");
+    const backdrop = document.getElementById("backdrop");
+    const closeBtn = document.getElementById("closeBtn");
+    const replaySoundBtn = document.getElementById("replaySoundBtn");
+    const worldTabs = document.getElementById("worldTabs");
+    const tabBtns = document.querySelectorAll(".tab-btn");
+    const panels = {
+      fact: document.getElementById("panel-fact"),
+      deep: document.getElementById("panel-deep"),
+      quiz: document.getElementById("panel-quiz")
+    };
+
+    const earthWeightInput = document.getElementById("earthWeightInput");
+    const weightOutput = document.getElementById("weightOutput");
+    let currentGravityRatio = 1;
+    let currentWorldName = "Earth";
+    let currentSoundId = "earth";
+
+    replaySoundBtn.addEventListener("click", () => {
+      soundEngine.playWorldSound(currentSoundId);
+    });
+
+    function updateWeightCalculation() {
+      const w = parseFloat(earthWeightInput.value);
+      if (isNaN(w) || w <= 0) {
+        weightOutput.textContent = "Enter a positive weight in kg to calculate.";
+        return;
+      }
+      const converted = (w * currentGravityRatio).toFixed(1);
+      weightOutput.textContent = `${w} kg on Earth = ${converted} kg on ${currentWorldName}`;
+    }
+
+    earthWeightInput.addEventListener("input", updateWeightCalculation);
+
+    function setTab(tabName) {
+      tabBtns.forEach(b => b.classList.toggle("active", b.dataset.tab === tabName));
+      Object.entries(panels).forEach(([key, el]) => {
+        el.classList.toggle("active", key === tabName);
+      });
+    }
+
+    function renderQuiz(world) {
+      const qEl = document.getElementById("quizQuestion");
+      const optsEl = document.getElementById("quizOptions");
+      const fbEl = document.getElementById("quizFeedback");
+
+      qEl.textContent = world.quiz.q;
+      optsEl.innerHTML = "";
+      fbEl.textContent = "";
+
+      world.quiz.options.forEach((opt, idx) => {
+        const btn = document.createElement("button");
+        btn.className = "option-btn";
+        btn.textContent = opt;
+        btn.addEventListener("click", () => {
+          optsEl.querySelectorAll(".option-btn").forEach(b => (b.disabled = true));
+          const isRight = idx === world.quiz.answer;
+          soundEngine.playQuizResult(isRight);
+          if (isRight) {
+            btn.classList.add("correct");
+            fbEl.style.color = "var(--success)";
+            fbEl.textContent = world.quiz.win;
+          } else {
+            btn.classList.add("wrong");
+            optsEl.children[world.quiz.answer].classList.add("correct");
+            fbEl.style.color = "var(--accent)";
+            fbEl.textContent = "Good try! Check the highlighted answer to learn more.";
+          }
+        });
+        optsEl.appendChild(btn);
+      });
+    }
+
+    function syncVisitedUI() {
+      badge.textContent = `Explored: ${visited.size} / 9`;
+      document.querySelectorAll(".celestial").forEach(el => {
+        el.classList.toggle("visited", visited.has(el.dataset.id));
+      });
+    }
+
+    function openWorldModal(id, initialTab = "fact") {
+      const world = worldMap[id];
+      if (!world) return;
+
+      visited.add(id);
+      syncVisitedUI();
+
+      currentSoundId = id;
+      soundEngine.playWorldSound(id);
+
+      worldTabs.style.display = "flex";
+      currentGravityRatio = world.gravityRatio;
+      currentWorldName = world.name;
+
+      document.getElementById("cardGroup").textContent = world.group;
+      document.getElementById("cardTitle").textContent = world.name;
+      document.getElementById("cardOrder").textContent = world.order;
+      document.getElementById("cardMoons").textContent = world.moons;
+      document.getElementById("cardFact").textContent = world.fact;
+
+      document.getElementById("deepDist").textContent = world.deep.dist;
+      document.getElementById("deepDay").textContent = world.deep.day;
+      document.getElementById("deepYear").textContent = world.deep.year;
+      document.getElementById("deepTemp").textContent = world.deep.temp;
+      document.getElementById("deepStory").textContent = world.deep.story;
+      document.getElementById("deepMoonsInfo").textContent = world.deep.moonsInfo;
+
+      document.getElementById("weightWorldName").textContent = world.name;
+      updateWeightCalculation();
+
+      document.getElementById("earthLayersSection").style.display = id === "earth" ? "block" : "none";
+
+      renderQuiz(world);
+      setTab(initialTab);
+      backdrop.classList.add("open");
+      backdrop.setAttribute("aria-hidden", "false");
+    }
+
+    function openMoonModal(moonId) {
+      const moon = moonMap[moonId];
+      if (!moon) return;
+
+      currentSoundId = moonId;
+      soundEngine.playWorldSound(moonId);
+
+      worldTabs.style.display = "none";
+      document.getElementById("cardGroup").textContent = `Moon of ${moon.parent}`;
+      document.getElementById("cardTitle").textContent = moon.name;
+      document.getElementById("cardOrder").textContent = `Orbits ${moon.parent}`;
+      document.getElementById("cardMoons").textContent = "Natural Satellite";
+      document.getElementById("cardFact").innerHTML = `${moon.fact}<br><br><span style="color: var(--accent-2); font-size: 0.88rem; font-weight: 700;">${moon.stats}</span>`;
+
+      setTab("fact");
+      backdrop.classList.add("open");
+      backdrop.setAttribute("aria-hidden", "false");
+    }
+
+    document.getElementById("earthShieldsBtn").addEventListener("click", () => {
+      openWorldModal("earth", "deep");
+    });
+
+    tabBtns.forEach(btn => btn.addEventListener("click", () => setTab(btn.dataset.tab)));
+
+    function closeModal() {
+      backdrop.classList.remove("open");
+      backdrop.setAttribute("aria-hidden", "true");
+    }
+
+    closeBtn.addEventListener("click", closeModal);
+    backdrop.addEventListener("click", e => {
+      if (e.target === backdrop) closeModal();
+    });
+    document.addEventListener("keydown", e => {
+      if (e.key === "Escape") closeModal();
+    });
+
+    // Filters
+    const filterButtons = document.querySelectorAll("[data-filter]");
+    filterButtons.forEach(btn => {
+      btn.addEventListener("click", () => {
+        filterButtons.forEach(b => b.classList.remove("active-filter"));
+        btn.classList.add("active-filter");
+        const mode = btn.dataset.filter;
+
+        document.querySelectorAll(".celestial").forEach(c => {
+          const w = worldMap[c.dataset.id];
+          const match = mode === "all" || w.type === mode;
+          c.classList.toggle("dimmed", !match);
+        });
+      });
+    });
+
+    // Pause / Resume
+    const motionBtn = document.getElementById("toggleMotion");
+    motionBtn.addEventListener("click", () => {
+      isPaused = document.body.classList.toggle("paused");
+      motionBtn.textContent = isPaused ? "Resume" : "Pause";
+    });
+  </script>
+</body>
+</html>
